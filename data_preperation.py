@@ -20,15 +20,15 @@ def weapon_type_element_count(file):
     return df
 
 @st.cache_data
-def weapon_type_output_without_dim(manifest_weapon_data):
-    df_merge = weapon_type_count(manifest_weapon_data)
-    df_2 = weapon_type_element_count(manifest_weapon_data)
+def weapon_type_output_without_dim(file):
+    df_1 = weapon_type_count(file)
+    df_2 = weapon_type_element_count(file)
 
     weapon_elements = ['Kinetic', 'Stasis', 'Strand', 'Arc', 'Solar', 'Void']
     for element in weapon_elements:
         element_count_1 = df_2[df_2['Weapon Element'] == element].set_index('Weapon Type')['Unique Count']
-        df_merge[element] = df_merge['Weapon Type'].apply(lambda x: '{}'.format(element_count_1.get(x, 0)))
-    return df_merge
+        df_1[element] = df_1['Weapon Type'].apply(lambda x: '{}'.format(element_count_1.get(x, 0)))
+    return df_1
 
 @st.cache_data
 def weapon_type_output_with_dim(manifest_weapon_data, file):

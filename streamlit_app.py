@@ -91,8 +91,6 @@ def apply_all_filters(df, selected_tier, selected_type, selected_archetype, sele
         df = df.loc[df['Weapon Element'] == selected_element]
     if selected_sunset == 'Yes':
         df = df.loc[df['Is Sunset'] == 'No']
-    if selected_sunset == 'Yes':
-        df = df.loc[df['Is Sunset'] == 'No']
     return df
 
 def apply_reduced_filters(df, selected_tier, selected_sunset):
@@ -141,7 +139,7 @@ def main():
     # Setup Session States
     session_state = SessionState(dim_weapon_data=None, dim_armour_data=None, owned_weapons_perk_list=None)
 
-    # Setup DIM Uploads
+    # Setup DIM Uploads & Process Data
     with st.expander('DIM File Uploader', expanded=False):
         col1, col2 = st.columns([1, 1])
         uploaded_weapon_file = col1.file_uploader("DIM Weapon Uploader", type="csv")
@@ -149,11 +147,9 @@ def main():
             session_state.dim_weapon_data = load_dim_weapon_data(uploaded_weapon_file, weapon_manifest_file)
             weapon_type_count = weapon_type_count(session_state.dim_weapon_data)
             weapon_type_element_count = weapon_type_element_count(session_state.dim_weapon_data)
-            weapon_type_output_without_dim = weapon_type_output_without_dim(session_state.dim_weapon_data)
-            weapon_type_output_with_dim = weapon_type_output_with_dim(weapon_manifest_file, session_state.dim_weapon_data)
-            owned_counted_list = owned_counted_list(session_state.dim_weapon_data)
-            not_owned_list = not_owned_list(weapon_manifest_file, session_state.dim_weapon_data)
-            owned_weapons_perk_list = owned_weapons_perk_list(weapon_manifest_file, session_state.dim_weapon_data)
+            # owned_counted_list = owned_counted_list(session_state.dim_weapon_data)
+            # not_owned_list = not_owned_list(weapon_manifest_file, session_state.dim_weapon_data)
+            # owned_weapons_perk_list = owned_weapons_perk_list(weapon_manifest_file, session_state.dim_weapon_data)
         uploaded_armour_file = col2.file_uploader("DIM armour Uploader", type="csv")
         if uploaded_armour_file is not None:
             session_state.dim_armour_data = load_dim_armour_data(uploaded_armour_file)
@@ -167,9 +163,17 @@ def main():
     # Setup Sidebar Filters
     selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset = sidebar()
 
+    # Apply Filters
+    weapon_manifest_file_filtered_all = apply_all_filters(weapon_manifest_file, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+    weapon_manifest_file_filtered_reduced = apply_reduced_filters(weapon_manifest_file, selected_tier, selected_sunset)
+    if uploaded_weapon_file is not None:
+        dim_weapon_data_filtered_all = apply_all_filters(session_state.dim_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+        dim_weapon_data_filtered_reduced = apply_reduced_filters(session_state.dim_weapon_data, selected_tier, selected_sunset)
+    else:
+        pass
+
     # Define the page functions
-    def home_page(session_state, weapon_manifest_file, selected_tier, selected_type, selected_archetype, selected_slot,
-                  selected_element, selected_sunset):
+    def home_page(session_state, weapon_manifest_file, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Home Page')
 
         # Set up columns for multiselect
@@ -205,8 +209,74 @@ def main():
         # Use st.write to display the formatted hyperlink text
         col5.write(f'<a href="{selected_url_5}" target="_blank">{link_text_5}</a>', unsafe_allow_html=True)
 
+        with st.expander('How To Use', expanded=False):
+            from website_text import text_1
+            text_1()
+
+        with st.expander('About me', expanded=False):
+            from website_text import text_2
+            text_2()
+
     def vault_summary(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Vault Summary')
+
+        # Setup Overall Metrics
+        col1, col2, col3, col4 = st.columns([4, 4, 4, 6])
+
+        # Populate Col 1 Metric
+        if uploaded_weapon_file is not None:
+            col1.metric(label='Total Weapons Owned', value=len(session_state.dim_weapon_data), help='Count Of All Weapons Owned')
+        else:
+            col1.metric(label='Total Weapons Owned', value='Load DIM Data', help='Count Of All Weapons Owned')
+
+        # Populate Col 2 Metric
+        if uploaded_armour_file is not None:
+            col2.metric(label='Total armour Pieces Owned', value=len(session_state.dim_armour_data), help='Count Of All armour Owned')
+        else:
+            col2.metric(label='Total armour Pieces Owned', value='Load DIM Data', help='Count Of All armour Owned')
+
+        # Populate Col 3 Metric
+        if uploaded_weapon_file and uploaded_armour_file is not None:
+            col3.metric(label='Total Items Owned', value=len(session_state.dim_weapon_data) + len(session_state.dim_armour_data), help='Total Item Count')
+        else:
+            col3.metric(label='Total Items Owned', value='Load DIM Data', help='Total Item Count')
+
+        with st.expander('Weapon Details', expanded=True):
+
+            # Set up columns for multiselect
+            col1, col2, col3 = st.columns([12, 4, 4])
+
+            # Setup Weapon Details
+            if uploaded_weapon_file is not None:
+                vault_summary_table_1 = weapon_type_output_with_dim(weapon_manifest_file_filtered_reduced, dim_weapon_data_filtered_reduced)
+                col1.write('Weapons Available (with owned count)')
+                col1.dataframe(vault_summary_table_1, use_container_width=True)
+            else:
+                vault_summary_table_1 = weapon_type_output_without_dim(weapon_manifest_file_filtered_reduced)
+                col1.write('Available Weapons (upload DIM file to show owned)')
+                col1.dataframe(vault_summary_table_1, use_container_width=True)
+
+            # Setup Weapon Owned
+            if uploaded_weapon_file is not None:
+                vault_summary_table_2 = owned_counted_list(dim_weapon_data_filtered_all)
+                vault_summary_table_2 = vault_summary_table_2.reset_index(drop=True)  # Reset the index
+                col2.write('Weapons Owned (with count)')
+                col2.dataframe(vault_summary_table_2, use_container_width=True)
+            else:
+                col2.write('Upload DIM Weapon Data')
+
+            # Setup Missing Weapon Details
+            if uploaded_weapon_file is not None:
+                vault_summary_table_3 = not_owned_list(weapon_manifest_file_filtered_all, dim_weapon_data_filtered_all)
+                vault_summary_table_3 = pd.DataFrame(vault_summary_table_3, columns=['Weapon Name'])
+                col3.write('Weapons Not Owned')
+                col3.dataframe(vault_summary_table_3, use_container_width=True)
+            else:
+                vault_summary_table_3 = pd.DataFrame(weapon_manifest_file_filtered_all, columns=['Weapon Name'])
+                col3.write('All Weapons (Upload DIM Data)')
+                col3.dataframe(vault_summary_table_3, use_container_width=True)
+
+
 
     def weapon_analysis(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Analysis')
