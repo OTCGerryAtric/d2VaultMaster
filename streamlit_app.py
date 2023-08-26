@@ -420,6 +420,94 @@ def main():
     def weapon_perks(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Perks')
 
+        # Copy Filtered Manifest Weapon Data
+        weapon_perk_filtered_df = apply_all_filters(manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+
+        # Set up columns for multiselect
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 2])
+
+        # Search for Slot 3 Selection
+        slot3_cols = weapon_perk_filtered_df.filter(regex='^Slot 3').columns
+        slot3_perks = sorted(weapon_perk_filtered_df.filter(regex='^Slot 3').stack().unique())
+        slot_3 = col1.multiselect('Select Perk(s) in Slot 3', slot3_perks)
+        if len(slot_3) > 0:
+            slot_3_list = weapon_perk_filtered_df[slot3_cols].apply(lambda x: any(item in x.values for item in slot_3), axis=1)
+            weapon_perk_filtered_df = weapon_perk_filtered_df.loc[slot_3_list]
+        slot_3_count = col1.metric('Filtered Data Count', len(weapon_perk_filtered_df))
+
+        # Search for Slot 4 Selection
+        slot4_cols = weapon_perk_filtered_df.filter(regex='^Slot 4').columns
+        slot4_perks = sorted(weapon_perk_filtered_df.filter(regex='^Slot 4').stack().unique())
+        slot_4 = col2.multiselect('Select Perk(s) in Slot 4', slot4_perks)
+        if len(slot_4) > 0:
+            slot_4_list = weapon_perk_filtered_df[slot4_cols].apply(lambda x: any(item in x.values for item in slot_4), axis=1)
+            weapon_perk_filtered_df = weapon_perk_filtered_df.loc[slot_4_list]
+        slot_4_count = col2.metric('Filtered Data Count', len(weapon_perk_filtered_df))
+
+        # Search for Slot 2 Selection
+        slot2_cols = weapon_perk_filtered_df.filter(regex='^Slot 2').columns
+        slot2_perks = sorted(weapon_perk_filtered_df.filter(regex='^Slot 2').stack().unique())
+        slot_2 = col3.multiselect('Select Perk(s) in Slot 2', slot2_perks)
+        if len(slot_2) > 0:
+            slot_2_list = weapon_perk_filtered_df[slot2_cols].apply(lambda x: any(item in x.values for item in slot_2), axis=1)
+            weapon_perk_filtered_df = weapon_perk_filtered_df.loc[slot_2_list]
+        slot_2_count = col3.metric('Filtered Data Count', len(weapon_perk_filtered_df))
+
+        # Search for Slot 1 Selection
+        slot1_cols = weapon_perk_filtered_df.filter(regex='^Slot 1').columns
+        slot1_perks = sorted(weapon_perk_filtered_df.filter(regex='^Slot 1').stack().unique())
+        slot_1 = col4.multiselect('Select Perk(s) in Slot 1', slot1_perks)
+        if len(slot_1) > 0:
+            slot_1_list = weapon_perk_filtered_df[slot1_cols].apply(lambda x: any(item in x.values for item in slot_1), axis=1)
+            weapon_perk_filtered_df = weapon_perk_filtered_df.loc[slot_1_list]
+        slot_1_count = col4.metric('Filtered Data Count', len(weapon_perk_filtered_df))
+
+        # Create table, based on selected weapon type
+        if selected_type != 'Select all':
+            weapon_perk_filtered_df = load_weapon_type_data(weapon_perk_filtered_df, selected_type)
+        else:
+            weapon_perk_filtered_df = weapon_perk_filtered_df[['Weapon Name With Season', 'Weapon Name', 'Weapon Season', 'Weapon Hash', 'Weapon Tier', 'Weapon Type', 'Weapon Archetype', 'Weapon Slot', 'Weapon Element', 'Weapon Current Version', 'Weapon Power Cap', 'Is Sunset']]
+
+        # Import Functions
+        from data_preperation import owned_weapons_perk_list
+
+        if uploaded_weapon_file is not None:
+            # Create List of Owned Weapon's Perks
+            owned_weapons_perk_list = owned_weapons_perk_list(weapon_manifest_file_filtered_all, dim_weapon_data_filtered_all)
+
+            # Set Up Owned Perk Count
+            dfs_to_merge = []
+            slots = ['Slot 1', 'Slot 2', 'Slot 3', 'Slot 4']
+            slot_perks = [slot_1, slot_2, slot_3, slot_4]
+
+            if (len(slot_1) + len(slot_2) + len(slot_3) + len(slot_4)) > 0:
+                for s, perks in zip(slots, slot_perks):
+                    if len(perks) > 0:
+                        temp_df = owned_weapons_perk_list.loc[
+                            (owned_weapons_perk_list['Slot'] == s) & (owned_weapons_perk_list['Perk'].isin(perks))]
+                        dfs_to_merge.append(temp_df[['Weapon Name', 'Weapon ID']])  # Only retain the 'Weapon ID' column
+
+                # Start with the first dataframe and successively merge with others
+                owned_weapons_perk_list = dfs_to_merge[0]
+                for df in dfs_to_merge[1:]:
+                    owned_weapons_perk_list = pd.merge(owned_weapons_perk_list, df, on=['Weapon Name', 'Weapon ID'], how='inner')
+
+            if (len(slot_1) + len(slot_2) + len(slot_3) + len(slot_4)) > 0:
+                weapon_count = owned_weapons_perk_list.groupby('Weapon Name').size().reset_index(name='count')
+                weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Name', how='left')
+                weapon_perk_filtered_df.insert(1, 'Count', weapon_perk_filtered_df.pop('count'))
+            else:
+                weapon_count = session_state.dim_weapon_data.groupby('Weapon Hash').size().reset_index(name='count')
+                weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Hash', how='left')
+                weapon_perk_filtered_df.insert(1, 'Count', weapon_perk_filtered_df.pop('count'))
+
+        with st.expander('Available Weapons', expanded=True):
+            # Create table
+            grid_table = create_grid_table(weapon_perk_filtered_df, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+
+            # Create hyperlinks
+            create_hyperlinks_v2(weapon_perk_filtered_df, grid_table, col5)
+
     def build_tool(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Build Tool')
 
