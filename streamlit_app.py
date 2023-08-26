@@ -511,10 +511,12 @@ def main():
                 weapon_count = owned_weapons_perk_list.groupby('Weapon Name').size().reset_index(name='count')
                 weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Name', how='left')
                 weapon_perk_filtered_df.insert(1, 'Count', weapon_perk_filtered_df.pop('count'))
+                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['Count', 'Weapon Name With Season'], ascending=[False, True])
             else:
                 weapon_count = session_state.dim_weapon_data.groupby('Weapon Hash').size().reset_index(name='count')
                 weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Hash', how='left')
                 weapon_perk_filtered_df.insert(1, 'Count', weapon_perk_filtered_df.pop('count'))
+                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['Count', 'Weapon Name With Season'], ascending=[False, True])
 
         with st.expander('Available Weapons', expanded=True):
             # Create table
