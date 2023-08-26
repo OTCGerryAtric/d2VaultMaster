@@ -349,5 +349,5 @@ def create_hyperlinks_v2(dataframe, grid_table, col5):
 def crafted_weapon_list(file):
     df = file.loc[file['Crafted'] == True]
     df = df[['Weapon Name With Season', 'Weapon Name', 'Weapon Tier', 'Weapon Type', 'Weapon Archetype', 'Crafted Level']]
-    df = df.sort_values(by=('Crafted Level'), ascending=False)
+    df = df.reset_index().sort_values(by='Crafted Level', ascending=False)
     return df
