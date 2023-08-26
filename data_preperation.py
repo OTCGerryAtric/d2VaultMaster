@@ -344,3 +344,10 @@ def create_hyperlinks_v2(dataframe, grid_table, col5):
         col5.write(f'<a href="{selected_url_4}" target="_blank">{link_text_4}</a>', unsafe_allow_html=True)
     except Exception:
         pass
+
+@st.cache_data
+def crafted_weapon_list(file):
+    df = file.loc[file['Crafted'] == True]
+    df = df[['Weapon Name With Season', 'Weapon Name', 'Weapon Tier', 'Weapon Type', 'Weapon Archetype', 'Crafted Level']]
+    df = df.sort_values(by=('Crafted Level'), ascending=False)
+    return df

@@ -273,6 +273,14 @@ def main():
                 col3.write('All Weapons (Upload DIM Data)')
                 col3.dataframe(vault_summary_table_3, use_container_width=True)
 
+        with st.expander('Crafted Weapons', expanded=True):
+            # Import Function
+            from data_preperation import crafted_weapon_list
+
+            # Comment
+            crafted_weapon_list = crafted_weapon_list(session_state.dim_weapon_data)
+            st.write(crafted_weapon_list)
+
     def weapon_analysis(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Analysis')
 
@@ -510,6 +518,7 @@ def main():
 
     def build_tool(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Build Tool')
+        st.write('Coming soon!')
 
 # Call the selected page function
     page = {
