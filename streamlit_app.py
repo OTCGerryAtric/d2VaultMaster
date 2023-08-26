@@ -351,6 +351,12 @@ def main():
                 weapon_analysis_table_1 = weapon_analysis_table_1.merge(weapon_count, on='Weapon Hash', how='left')
                 weapon_analysis_table_1.insert(1, 'Count', weapon_analysis_table_1.pop('count'))
 
+            try:
+                weapon_analysis_table_1 = weapon_analysis_table_1.sort_values(by=['Count', 'Weapon Name With Season'], ascending=[False, True])
+            except Exception:
+                weapon_analysis_table_1 = weapon_analysis_table_1.sort_values(by=['Weapon Name With Season'], ascending=[True])
+
+
             # Create table
             grid_table = create_grid_table(weapon_analysis_table_1, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
 
