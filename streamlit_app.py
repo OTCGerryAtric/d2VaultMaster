@@ -147,9 +147,6 @@ def main():
             session_state.dim_weapon_data = load_dim_weapon_data(uploaded_weapon_file, weapon_manifest_file)
             weapon_type_count = weapon_type_count(session_state.dim_weapon_data)
             weapon_type_element_count = weapon_type_element_count(session_state.dim_weapon_data)
-            # owned_counted_list = owned_counted_list(session_state.dim_weapon_data)
-            # not_owned_list = not_owned_list(weapon_manifest_file, session_state.dim_weapon_data)
-            # owned_weapons_perk_list = owned_weapons_perk_list(weapon_manifest_file, session_state.dim_weapon_data)
         uploaded_armour_file = col2.file_uploader("DIM armour Uploader", type="csv")
         if uploaded_armour_file is not None:
             session_state.dim_armour_data = load_dim_armour_data(uploaded_armour_file)
@@ -276,13 +273,149 @@ def main():
                 col3.write('All Weapons (Upload DIM Data)')
                 col3.dataframe(vault_summary_table_3, use_container_width=True)
 
-
-
     def weapon_analysis(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Analysis')
 
+        # Set up Weapon Manifest counts
+        unique_filtered_manifest_weapons_count = weapon_manifest_file_filtered_all[['Weapon Name', 'Weapon Power Cap']]
+        unique_filtered_manifest_weapons_count = unique_filtered_manifest_weapons_count.drop_duplicates()
+        unique_filtered_manifest_weapons_count = len(unique_filtered_manifest_weapons_count)
+
+        # Set up DIM counts
+        if uploaded_weapon_file is not None:
+            dim_total_weapons_owned = len(dim_weapon_data_filtered_all)
+            dim_total_unique_weapons_owned = dim_weapon_data_filtered_all[['Weapon Name', 'Weapon Power Cap']]
+            dim_total_unique_weapons_owned = len(dim_total_unique_weapons_owned.drop_duplicates())
+            dim_weapon_unique_count = dim_weapon_data_filtered_all[['Weapon Name', 'Weapon Power Cap']]
+            dim_weapon_unique_count = len(dim_weapon_unique_count.drop_duplicates())
+        else:
+            pass
+
+        with st.expander('Weapon Summary', expanded=True):
+            # Set up columns for multiselect
+            col1, col2, col3, col4, col5 = st.columns(5)
+
+            # Set up counts
+            try:
+                col1.metric(label='Total Weapons Owned', value=format(dim_total_weapons_owned, ','), help='Count Of All Weapons Owned')
+            except Exception:
+                col1.metric(label='Total Weapons Owned', value='Upload DIM Data', help='Count Of All Weapons Owned')
+
+            try:
+                col2.metric(label='Unique Weapons Owned', value=format(dim_total_unique_weapons_owned, ','), help='Count of Unique Weapons. Excludes Duplicates Where Weapons Share Same Name And Power Cap, e.g. Dark Decider')
+            except Exception:
+                col2.metric(label='Unique Weapons Owned', value='Upload DIM Data', help='Count of Unique Weapons. Excludes Duplicates Where Weapons Share Same Name And Power Cap, e.g. Dark Decider')
+
+            try:
+                col3.metric(label='Unique Weapons Available (Filtered)', value=format(unique_filtered_manifest_weapons_count, ','), help='Count Of Weapons Available (Filtered)')
+            except Exception:
+                pass
+
+            try:
+                col4.metric(label='Unique Weapons Owned (Filtered)', value=format(dim_weapon_unique_count, ','), help='Count of Unique Weapons. Excludes Duplicates Where Weapons Share Same Name And Power Cap')
+            except Exception:
+                col4.metric(label='Unique Weapons Owned (Filtered)', value='Upload DIM Data', help='Count of Unique Weapons. Excludes Duplicates Where Weapons Share Same Name And Power Cap')
+
+            try:
+                col5.metric(label='% Filtered Weapons Owned', value=f"{round((dim_weapon_unique_count * 100 / unique_filtered_manifest_weapons_count), 1)}%", help='Percentage of Weapons Owned')
+            except Exception:
+                col5.metric(label='% Filtered Weapons Owned', value='Upload DIM Data', help='Percentage of Weapons Owned')
+
+        with st.expander('Weapon Database', expanded=True):
+            # Set up columns for multiselect
+            col1, col2, col3, col4, col5 = st.columns(5)
+
+            # Create table, based on selected weapon type
+            if selected_type != 'Select all':
+                weapon_analysis_table_1 = load_weapon_type_data(weapon_manifest_file_filtered_all, selected_type)
+            else:
+                weapon_analysis_table_1 = weapon_manifest_file_filtered_all[['Weapon Name With Season', 'Weapon Name', 'Weapon Season', 'Weapon Hash', 'Weapon Tier', 'Weapon Type', 'Weapon Archetype', 'Weapon Slot', 'Weapon Element', 'Weapon Current Version', 'Weapon Power Cap', 'Is Sunset']]
+
+            if uploaded_weapon_file is not None:
+                weapon_count = dim_weapon_data_filtered_all.groupby('Weapon Hash').size().reset_index(name='count')
+                weapon_analysis_table_1 = weapon_analysis_table_1.merge(weapon_count, on='Weapon Hash', how='left')
+                weapon_analysis_table_1.insert(1, 'Count', weapon_analysis_table_1.pop('count'))
+
+            # Create table
+            grid_table = create_grid_table(weapon_analysis_table_1, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+
+            # Create hyperlinks
+            create_hyperlinks_v1(weapon_analysis_table_1, grid_table, col1, col2, col3, col4)
+
     def weapon_comparison(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Comparison')
+
+        # Set up columns for multiselect
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 4, 2, 2])
+
+        # Select Season
+        season_list = sorted(weapon_manifest_file_filtered_all['Weapon Season'].unique(), reverse=True)
+        season_list.insert(0, 'Select all')
+        selected_season = col1.selectbox('Select Season To Filter Weapons For Comparison', season_list)
+
+        # Set up Weapon Comparator List
+        if selected_season == 'Select all':
+            weapon_name_list = sorted(weapon_manifest_file_filtered_all['Weapon Name With Season'].unique())
+            weapon_selected_name = col2.selectbox('Select Weapon For Comparison', weapon_name_list)
+        else:
+            weapon_comparison_name_list = weapon_manifest_file_filtered_all.loc[weapon_manifest_file_filtered_all['Weapon Season'] == selected_season]
+            weapon_name_list = sorted(weapon_comparison_name_list['Weapon Name With Season'].unique())
+            weapon_selected_name = col2.selectbox('Select Weapon For Comparison', weapon_name_list)
+
+        # Create List for Comparison
+        weapon_list = sorted(weapon_manifest_file_filtered_all['Weapon Name With Season'].unique())
+        if weapon_selected_name in weapon_name_list:
+            weapon_list.remove(weapon_selected_name)
+        weapon_comparison_list = col3.multiselect('Select Weapon To Compare', weapon_list)
+
+        # Set Up Comparison Type
+        comparison_type = col4.selectbox('Choose The Type Of Comparison', ['Absolute', 'Relative'])
+
+        # Lookup The Weapon Type and Achetype of the Selection Comparison Weapon
+        comparison_weapon_type = weapon_manifest_file_filtered_all.loc[weapon_manifest_file_filtered_all['Weapon Name With Season'] == weapon_selected_name, 'Weapon Type'].iloc[0]
+        comparison_weapon_archetype = weapon_manifest_file_filtered_all.loc[weapon_manifest_file_filtered_all['Weapon Name With Season'] == weapon_selected_name, 'Weapon Archetype'].iloc[0]
+
+        # Apply Weapon Type and Weapon Archetype Filter if a Weapon is Selected for Comparison
+        selected_weapon_filtered = weapon_manifest_file_filtered_all.loc[weapon_manifest_file_filtered_all['Weapon Type'] == comparison_weapon_type]
+        selected_weapon_filtered = selected_weapon_filtered.loc[selected_weapon_filtered['Weapon Archetype'] == comparison_weapon_archetype]
+
+        # Create Selected Weapon Data for Table (So that it appears first)
+        selected_weapon = weapon_manifest_file_filtered_all.loc[weapon_manifest_file_filtered_all['Weapon Name With Season'] == weapon_selected_name]
+
+        # Add Other Weapons With That Are The Same Type And Archetype
+        comparison_weapons = selected_weapon_filtered.loc[selected_weapon_filtered['Weapon Name With Season'] != weapon_selected_name]
+
+        # Created Combined Table
+        weapon_comparison_table_1 = pd.concat([selected_weapon, comparison_weapons], ignore_index=True)
+
+        # Create table, based on selected weapon type
+        if comparison_weapon_type != 'Select all':
+            weapon_comparison_table_1 = load_weapon_type_data(weapon_comparison_table_1, comparison_weapon_type)
+        else:
+            weapon_comparison_table_1 = weapon_comparison_table_1[['Weapon Name With Season', 'Weapon Name', 'Weapon Season', 'Weapon Hash', 'Weapon Tier', 'Weapon Type', 'Weapon Archetype', 'Weapon Slot', 'Weapon Element', 'Weapon Current Version', 'Weapon Power Cap', 'Is Sunset']]
+
+        if comparison_type == 'Relative':
+            if comparison_weapon_type == 'Grenade Launcher' or selected_type == 'Rocket Launcher':
+                first_index = weapon_comparison_table_1.columns.get_loc("Blast Radius")
+            else:
+                first_index = weapon_comparison_table_1.columns.get_loc("Impact")
+            for col in weapon_comparison_table_1.iloc[:, first_index:].columns:
+                # subtract the first row value from the subsequent rows and store in new column
+                weapon_comparison_table_1.loc[1:, col] = weapon_comparison_table_1.loc[1:, col] - weapon_comparison_table_1.loc[0, col]
+        else:
+            pass
+
+        with st.expander('Weapon Comparison', expanded=True):
+            if uploaded_weapon_file is not None:
+                weapon_count = session_state.dim_weapon_data.groupby('Weapon Hash').size().reset_index(name='count')
+                weapon_comparison_table_1 = weapon_comparison_table_1.merge(weapon_count, on='Weapon Hash', how='left')
+                weapon_comparison_table_1.insert(1, 'Count', weapon_comparison_table_1.pop('count'))
+
+            # Create table
+            grid_table = create_grid_table(weapon_comparison_table_1, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+
+        # Create hyperlinks
+        create_hyperlinks_v2(weapon_comparison_table_1, grid_table, col5)
 
     def weapon_perks(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Perks')
