@@ -98,7 +98,10 @@ def apply_reduced_filters(df, selected_tier, selected_sunset):
     if len(selected_tier) > 0:
         df = df.loc[df['Weapon Tier'].isin(selected_tier)]
     if selected_sunset == 'Yes':
-        df = df.loc[df['Is Sunset'] == 'No']
+        try:
+            df = df.loc[df['Is Sunset'] == 'No']
+        except Exception:
+            pass
     return df
 
 def sidebar():
@@ -273,12 +276,16 @@ def main():
                 col3.write('All Weapons (Upload DIM Data)')
                 col3.dataframe(vault_summary_table_3, use_container_width=True)
 
-        with st.expander('Crafted Weapons', expanded=True):
+        with st.expander('Crafted Weapons', expanded=False):
             # Import Function
             from data_preperation import crafted_weapon_list
 
-            # Comment
+            # Create Crafted Weapon List
             crafted_weapon_list = crafted_weapon_list(session_state.dim_weapon_data)
+            crafted_weapon_list = apply_reduced_filters(crafted_weapon_list, selected_tier, selected_sunset)
+            crafted_weapon_list = crafted_weapon_list.reset_index(drop=True)
+            crafted_weapon_list.index += 1
+            crafted_weapon_list.drop(columns=['index'], inplace=True, errors='ignore')
             st.write(crafted_weapon_list)
 
     def weapon_analysis(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
@@ -377,7 +384,7 @@ def main():
         weapon_comparison_list = col3.multiselect('Select Weapon To Compare', weapon_list)
 
         # Set Up Comparison Type
-        comparison_type = col4.selectbox('Choose The Type Of Comparison', ['Absolute', 'Relative'])
+        comparison_type = col4.selectbox('Choose The Type Of Comparison', ['Absolute', 'Relative'], index=1)
 
         # Lookup The Weapon Type and Achetype of the Selection Comparison Weapon
         comparison_weapon_type = weapon_manifest_file_filtered_all.loc[weapon_manifest_file_filtered_all['Weapon Name With Season'] == weapon_selected_name, 'Weapon Type'].iloc[0]
