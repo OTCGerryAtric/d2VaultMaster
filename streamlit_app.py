@@ -355,7 +355,7 @@ def main():
             grid_table = create_grid_table(weapon_analysis_table_1, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
 
             # Create hyperlinks
-            create_hyperlinks_v1(weapon_analysis_table_1, grid_table, col1, col2, col3, col4)
+            create_hyperlinks_v1(weapon_analysis_table_1, grid_table, col1, col2, col3, col4, col5)
 
     def weapon_comparison(session_state, manifest_weapon_data, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset):
         st.title('Weapon Comparison')
