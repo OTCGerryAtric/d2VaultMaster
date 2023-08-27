@@ -495,6 +495,7 @@ def main():
         if uploaded_weapon_file is not None:
             # Create List of Owned Weapon's Perks
             owned_weapons_perk_list = owned_weapons_perk_list(weapon_manifest_file_filtered_all, dim_weapon_data_filtered_all)
+            available_weapons_perk_list = owned_weapons_perk_list
 
             # Set Up Owned Perk Count
             dfs_to_merge = []
@@ -516,17 +517,58 @@ def main():
             if (len(slot_1) + len(slot_2) + len(slot_3) + len(slot_4)) > 0:
                 weapon_count = owned_weapons_perk_list.groupby('Weapon Name').size().reset_index(name='count')
                 weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Name', how='left')
-                weapon_perk_filtered_df.insert(1, 'Count', weapon_perk_filtered_df.pop('count'))
-                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['Count', 'Weapon Name With Season'], ascending=[False, True])
+                weapon_perk_filtered_df.insert(1, 'With Perks', weapon_perk_filtered_df.pop('count'))
+                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['With Perks', 'Weapon Name With Season'], ascending=[False, True])
+                weapon_count = session_state.dim_weapon_data.groupby('Weapon Hash').size().reset_index(name='count')
+                weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Hash', how='left')
+                weapon_perk_filtered_df.insert(1, 'Owned', weapon_perk_filtered_df.pop('count'))
+                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['Owned', 'Weapon Name With Season'], ascending=[False, True])
             else:
                 weapon_count = session_state.dim_weapon_data.groupby('Weapon Hash').size().reset_index(name='count')
                 weapon_perk_filtered_df = weapon_perk_filtered_df.merge(weapon_count, on='Weapon Hash', how='left')
-                weapon_perk_filtered_df.insert(1, 'Count', weapon_perk_filtered_df.pop('count'))
-                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['Count', 'Weapon Name With Season'], ascending=[False, True])
+                weapon_perk_filtered_df.insert(1, 'Owned', weapon_perk_filtered_df.pop('count'))
+                weapon_perk_filtered_df = weapon_perk_filtered_df.sort_values(by=['Owned', 'Weapon Name With Season'], ascending=[False, True])
 
         with st.expander('Available Weapons', expanded=True):
             # Create table
             grid_table = create_grid_table(weapon_perk_filtered_df, selected_tier, selected_type, selected_archetype, selected_slot, selected_element, selected_sunset)
+
+        with st.expander('Owned Weapon Detail', expanded=True):
+
+            try:
+                selected_weapon = grid_table.selected_rows
+                selected_weapon_name = selected_weapon[0]["Weapon Name"]
+
+                # Filter Results For Selected Weapon
+                available_weapons_perk_list = available_weapons_perk_list.loc[available_weapons_perk_list['Weapon Name'] == selected_weapon_name]
+
+                # Return Perk Lists
+                perk_lists = (available_weapons_perk_list.groupby(['Weapon Name', 'Weapon ID', 'Slot'])['Perk'].apply(list).unstack())
+
+                # Reset index to bring 'Weapon Name' and 'Weapon ID' back as regular columns
+                perk_lists = perk_lists.reset_index()
+                perk_lists = perk_lists.applymap(lambda cell: ' ----- '.join(cell) if isinstance(cell, list) else cell)
+
+                # Display the table using ag-grid
+                gridOptionsBuilder = GridOptionsBuilder.from_dataframe(perk_lists)
+
+                # Set first column as index
+                gridOptionsBuilder.configure_first_column_as_index(headerText='Weapon Name')
+
+                columns_to_configure = perk_lists
+                gridOptionsBuilder.configure_column('Weapon Name', resizable=True, width=250)
+                gridOptionsBuilder.configure_column('Weapon ID', resizable=True, width=200)
+                gridOptionsBuilder.configure_column('Slot 1', resizable=True, width=350)
+                gridOptionsBuilder.configure_column('Slot 2', resizable=True, width=350)
+                gridOptionsBuilder.configure_column('Slot 3', resizable=True, width=350)
+                gridOptionsBuilder.configure_column('Slot 4', resizable=True, width=350)
+
+                gridOptions = gridOptionsBuilder.build()
+                grid_table = AgGrid(perk_lists, gridOptions=gridOptions, height=400, theme='balham')
+
+            except Exception:
+                pass
+
 
             # Create hyperlinks
             create_hyperlinks_v2(weapon_perk_filtered_df, grid_table, col5)

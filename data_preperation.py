@@ -254,7 +254,6 @@ def create_grid_table(file, selected_tier, selected_type, selected_archetype, se
     # Return the grid table object
     return grid_table
 
-
 def create_hyperlinks_v1(dataframe, grid_table, col1, col2, col3, col4, col5):
     # Create hyperlink for light.gg
     try:
