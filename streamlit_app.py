@@ -542,12 +542,16 @@ def main():
                 # Filter Results For Selected Weapon
                 available_weapons_perk_list = available_weapons_perk_list.loc[available_weapons_perk_list['Weapon Name'] == selected_weapon_name]
 
+                # Filter For Selected Perks
+                # TODO
+
                 # Return Perk Lists
                 perk_lists = (available_weapons_perk_list.groupby(['Weapon Name', 'Weapon ID', 'Slot'])['Perk'].apply(list).unstack())
 
                 # Reset index to bring 'Weapon Name' and 'Weapon ID' back as regular columns
                 perk_lists = perk_lists.reset_index()
                 perk_lists = perk_lists.applymap(lambda cell: ' ----- '.join(cell) if isinstance(cell, list) else cell)
+                perk_lists['Weapon ID'] = "id:" + perk_lists['Weapon ID']
 
                 # Display the table using ag-grid
                 gridOptionsBuilder = GridOptionsBuilder.from_dataframe(perk_lists)
@@ -564,11 +568,10 @@ def main():
                 gridOptionsBuilder.configure_column('Slot 4', resizable=True, width=350)
 
                 gridOptions = gridOptionsBuilder.build()
-                grid_table = AgGrid(perk_lists, gridOptions=gridOptions, height=400, theme='balham')
+                grid_table_1 = AgGrid(perk_lists, gridOptions=gridOptions, height=400, theme='balham')
 
             except Exception:
                 pass
-
 
             # Create hyperlinks
             create_hyperlinks_v2(weapon_perk_filtered_df, grid_table, col5)
